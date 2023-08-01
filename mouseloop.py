@@ -19,17 +19,19 @@ def change_state():
 
     if btn_state.get():
         estado_atual = "Desativado"
+        btn_color_bg.set("red")
+        btn_color_text.set("white")
         stop_function()
     else:
         if (timeEntry.get() == ''):
             btn_color_bg.set("gray")
-            btn_color_text.set("black")
             estado_atual = None
         else:
             estado_atual = "Ativado"
             start_function()
+        btn_color_text.set("black")
     
-    canvas.itemconfig(text, text=btn_text.get(), fill=btn_color_text.get())
+    canvas.itemconfig(text_item, text=btn_text.get(), fill=btn_color_text.get())
     canvas.itemconfig(start_button, fill=btn_color_bg.get())
     create_systray_icon("icone.png", update=True)
 
@@ -59,18 +61,23 @@ def stop_function():
     timeEntry.config(state=tk.NORMAL)
 
 def running_function(is_running):
+    data_atual = dt.datetime.now()
+    diff_set = int(timeEntry.get())
+    
     while is_running and btn_state.get():
         x_before, y_before = pyautogui.position()
-        time.sleep(int(timeEntry.get()))
-        x_after, y_after = pyautogui.position()
-        if is_running and btn_state.get() and x_before == x_after and y_before == y_after:
-            x_rand = random.randint(-100, 100)
-            y_rand = random.randint(-100, 100)
-            pyautogui.moveTo(x_after + x_rand, y_after + y_rand, duration=1)
-            data_atual = dt.datetime.now()
-            data_atual = data_atual.strftime('%d/%m/%Y %H:%M:%S')
-            text_ult_att.set(data_atual)
-            blockText.itemconfig(ultAtt, text=f"Ult. Att: {text_ult_att.get()}")
+        diff_atual = int( (dt.datetime.now() - data_atual).total_seconds() )
+
+        if ( (diff_set - diff_atual) <= 0 ):
+            x_after, y_after = pyautogui.position()
+            if is_running and btn_state.get() and x_before == x_after and y_before == y_after:
+                x_rand = random.randint(-100, 100)
+                y_rand = random.randint(-100, 100)
+                pyautogui.moveTo(x_after + x_rand, y_after + y_rand, duration=1)
+                data_atual = dt.datetime.now()
+                data_format = data_atual.strftime('%d/%m/%Y %H:%M:%S')
+                text_ult_att.set(data_format)
+                blockText.itemconfig(ultAtt, text=f"Ult. Att: {text_ult_att.get()}")
 
 def on_exit(icon, item):
     global is_running
@@ -84,17 +91,20 @@ def on_key_release(event):
     
     text = timeEntry.get()
     boolEntry = bool(text)
-    if not(btn_state.get()):
-        if (boolEntry != entry_state):
-             change_option_icon(boolEntry)
-        
+    if not(btn_state.get()):       
         if (len(text) > 0):
-            entry_state = True
             btn_color_bg.set("red")
+            btn_color_text.set("white") 
         else:
-            entry_state = False
             btn_color_bg.set("gray")
+            btn_color_text.set("black")
+
+    if (boolEntry != entry_state):
+        entry_state = boolEntry
+        change_option_icon(boolEntry)
+    
     canvas.itemconfig(start_button, fill=btn_color_bg.get())
+    canvas.itemconfig(text_item, fill=btn_color_text.get())
 
 def on_validate_input(new_text):
     if new_text.isdigit() or new_text == "":
@@ -195,10 +205,10 @@ if (timeEntry.get() == ''):
     btn_color_bg.set("gray")
 
 start_button = canvas.create_oval(10,10,90,90, fill=btn_color_bg.get(), outline="black")
-text = canvas.create_text(50,50, text = btn_text.get(), fill=btn_color_text.get())
+text_item = canvas.create_text(50, 50, text=btn_text.get(), fill=btn_color_text.get())
 
 canvas.tag_bind(start_button, "<Button-1>", lambda event: change_state())
-canvas.tag_bind(text, "<Button-1>", lambda event: change_state())
+canvas.tag_bind(text_item, "<Button-1>", lambda event: change_state())
 
 ultAtt = blockText.create_text(125, 20, text = f"Ult. Att: {text_ult_att.get()}", fill="black")
 
