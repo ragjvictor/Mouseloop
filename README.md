@@ -13,7 +13,7 @@ pip install pyautogui pystray pillow
 
 3. Clone este repositório em seu computador:
 ```bash
-git clone https://github.com/seu-usuario/MouseLoop.git
+git clone https://github.com/ragjvictor/MouseLoop.git
 ```
 
 4. Navegue para o diretório MouseLoop:
