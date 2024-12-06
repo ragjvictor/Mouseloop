@@ -8,14 +8,33 @@ import os
 import io
 import pystray
 from PIL import Image, ImageTk
+import sys
+import os
 
-# Variável global para o menu da bandeja do sistema
 estado_atual = None
 tray_icon    = None
 entry_state  = None
 
+def resource_path(relative_path):
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+    else:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+icon_path_ico = resource_path("Images/icone.ico")
+icon_path_png = resource_path("Images/icone.png")
+
+def center_window(window, width, height):
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    x = (screen_width - width) // 2
+    y = (screen_height - height) // 2
+    window.geometry(f"{width}x{height}+{x}+{y}")
+
 def change_state():
     global estado_atual
+    timevar = 0
 
     if btn_state.get():
         estado_atual = "Desativado"
@@ -23,7 +42,8 @@ def change_state():
         btn_color_text.set("white")
         stop_function()
     else:
-        if (timeEntry.get() == ''):
+        timevar = int(timeEntry.get()) if timeEntry.get().strip() != "" else 0
+        if (timevar < 10):
             btn_color_bg.set("gray")
             estado_atual = None
         else:
@@ -63,21 +83,41 @@ def stop_function():
 def running_function(is_running):
     data_atual = dt.datetime.now()
     diff_set = int(timeEntry.get())
-    
-    while is_running and btn_state.get():
-        x_before, y_before = pyautogui.position()
-        diff_atual = int( (dt.datetime.now() - data_atual).total_seconds() )
 
-        if ( (diff_set - diff_atual) <= 0 ):
+    while is_running and btn_state.get():
+        # Posição atual do mouse
+        x_before, y_before = pyautogui.position()
+        diff_atual = int((dt.datetime.now() - data_atual).total_seconds())
+
+        if (diff_set - diff_atual) <= 0:
             x_after, y_after = pyautogui.position()
             if is_running and btn_state.get() and x_before == x_after and y_before == y_after:
-                x_rand = random.randint(-100, 100)
-                y_rand = random.randint(-100, 100)
-                pyautogui.moveTo(x_after + x_rand, y_after + y_rand, duration=1)
+                # Obter dimensões do monitor
+                width, height = pyautogui.size()
+
+                # Aumentar ainda mais a movimentação do mouse
+                x_rand = random.randint(-500, 500)
+                y_rand = random.randint(-500, 500)
+                x_new = max(0, min(x_after + x_rand, width - 1))
+                y_new = max(0, min(y_after + y_rand, height - 1))
+                pyautogui.moveTo(x_new, y_new, duration=1)
+
+                # Clique no centro da tela
+                center_x = width // 2
+                center_y = height // 2
+                pyautogui.click(x=center_x, y=center_y)
+
+                # Scroll do mouse para cima ou para baixo
+                scroll_direction = random.choice([-1000, 1000])  # Direção aleatória
+                pyautogui.scroll(scroll_direction)
+
+                # Atualiza o timestamp para o próximo movimento
                 data_atual = dt.datetime.now()
                 data_format = data_atual.strftime('%d/%m/%Y %H:%M:%S')
                 text_ult_att.set(data_format)
                 blockText.itemconfig(ultAtt, text=f"Ult. Att: {text_ult_att.get()}")
+
+        time.sleep(0.5)  # Reduz o uso de CPU entre os loops
 
 def on_exit(icon, item):
     global is_running
@@ -89,10 +129,10 @@ def on_exit(icon, item):
 def on_key_release(event):
     global entry_state
     
-    text = timeEntry.get()
+    text = int(timeEntry.get()) if timeEntry.get().strip() != "" else 0
     boolEntry = bool(text)
     if not(btn_state.get()):       
-        if (len(text) > 0):
+        if (text >= 10):
             btn_color_bg.set("red")
             btn_color_text.set("white") 
         else:
@@ -121,11 +161,8 @@ def on_restore(icon, item):
 def create_systray_icon(icon_name, update=False):
     global tray_icon
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    icon_path = os.path.join(script_dir, "Images", icon_name)
-
-    if os.path.exists(icon_path):
-        with open(icon_path, "rb") as f:
+    if os.path.exists(icon_path_png):
+        with open(icon_path_png, "rb") as f:
             image_bytes = f.read()
 
         # Função para criar o ícone da bandeja do sistema na thread secundária
@@ -151,17 +188,18 @@ def create_systray_icon(icon_name, update=False):
         tray_thread.start()
 
 # Cria a janela principal
+window_width = 250
+window_height = 175
 root = tk.Tk()
 root.title("MouseLoop")
-root.geometry(f'{250}x{175}')
-root.resizable(False, False)
 root.withdraw()
+center_window(root, window_width, window_height) 
+root.resizable(False, False)
 
 current_directory = os.path.dirname(__file__)
-icon_path = os.path.join(current_directory, "Images", "icone.ico")
-icon_image = Image.open(icon_path)
+icon_image = Image.open(icon_path_ico)
 icon_photo = ImageTk.PhotoImage(icon_image)
-root.iconbitmap(icon_path)
+root.iconbitmap(icon_path_ico)
 
 # Configura o evento para minimizar ao clicar no botão de fechar (X)
 root.protocol("WM_DELETE_WINDOW", on_close)
@@ -188,7 +226,7 @@ text_ult_att.set(data_atual)
 canvas = tk.Canvas(root, width=100, height=100)
 canvas.pack()
 
-timeLabel = tk.Label(root, text="Tempo de espera de Execução (seg):")
+timeLabel = tk.Label(root, text="Tempo de espera de Execução (seg) [>=10]:")
 timeLabel.pack()
 
 validation = root.register(on_validate_input)
@@ -201,7 +239,8 @@ timeEntry.bind("<KeyRelease>", on_key_release)
 blockText = tk.Canvas(root, width=250, height=100)
 blockText.pack()
 
-if (timeEntry.get() == ''):
+varTime = int(timeEntry.get()) if timeEntry.get().strip() != "" else 0
+if (varTime < 10):
     btn_color_bg.set("gray")
 
 start_button = canvas.create_oval(10,10,90,90, fill=btn_color_bg.get(), outline="black")
